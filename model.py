@@ -5,7 +5,7 @@ import sys
 import re
 from nltk.tokenize import WordPunctTokenizer
 from nltk.corpus import stopwords
-import spacy
+#import spacy
 from pymagnitude import *
 from hashlib import blake2b
 import random
@@ -28,17 +28,20 @@ class Vectorization:
             
     
     def gethash(self,word):
+        # cette méthode permet d'avoir id d'un document en hashant une partie du texte
         h = blake2b(digest_size=35)
         h.update(str(word).encode('utf-8'))
         return h.hexdigest()
     
     def getword(self,text):
+        # Retourne les premiers cacactère d'un texte 
         if len(text)<15:
             return text[0:len(text)]
         else:
             return text[0:15]
     
     def nb_doc_incluster(self,cluster):
+        # cette méthode permet de calculer le log(N/nbr) où nbr est nombre de clusters contenant ce mot
         nbr=0
         for document in self.documents:
             is_in = False
@@ -54,6 +57,8 @@ class Vectorization:
             return np.log(len(self.clusters)/nbr)
         
     def df(self,document,cluster):
+        
+        #cette méthode permet de calculer le tf selon la formule définie
         tf=0
         nb_pre =0
         for word in cluster["words"]:
@@ -67,7 +72,7 @@ class Vectorization:
             return np.log((tf/len(document["tokens"]))+1),nb_pre/len(cluster["words"])
     
     def get_tokens(self,text):
-       
+       # effectue l'ensemble des traitement sur du texte à l'aide d'expression regulière et retourne les tokens
         nlp = spacy.load("en_core_web_sm")
         text_trait = text
         text_trait = re.sub(r'#\S+', "", text_trait)
@@ -95,7 +100,7 @@ class Vectorization:
         return tokens_fin
     
     def get_vectors(self):
-        
+        # permet de terminer la représentation vectorielle des mots dans la base des clusters
         for document in self.progressbar(self.documents, "get vectors: ", 80):
             vector = np.zeros(shape=len(self.clusters))
             for index, cluster in enumerate(self.clusters):
@@ -106,7 +111,7 @@ class Vectorization:
         print("Done.")
         
     def buil_documents(self,texts,ids_docs):
-        
+        # construre la structure document 
         for index, text in enumerate(self.progressbar(texts, "build documents: ", 80)):
             wordhas= self.getword(text)+str(np.array(random.sample(range(0, 500), 15)).sum())
             idhas = self.gethash(wordhas)
@@ -121,12 +126,13 @@ class Vectorization:
         print("Done.")
     
     def compute_idf(self):
-        
+        # calcul idf de chaque clusters selon la formule definie
         for cluster in self.progressbar(self.clusters, "compute idf: ", 80):
             cluster["idf"]=self.nb_doc_incluster(cluster)
         print("Done.")
             
     def fit(self,docs_texts,id_docs):
+        # appel les méthodes précendes pour indexer automatique les documents
         self.buil_documents(docs_texts,id_docs)
         self.compute_idf()
         self.get_vectors()
@@ -150,6 +156,7 @@ class Vectorization:
         self.docs = [{"text":doc["text"],"vectors":doc["vector"],"doc_id":doc["id"],"norm":doc["norm"]} for doc in self.documents]
       
     def get_cluster(self,word):
+        # retourne l'indice du cluster dans lequel se trouve un mot
         clustermin_index = None
         in_cluster = False
         vector = self.vectors.query(word)
@@ -169,6 +176,7 @@ class Vectorization:
     
 
     def buil_query(self,text):
+        # indexer le requête et retourne sa forme vectorielle dans la base des clusters
         tokens = self.get_tokens(text)
         vector = np.zeros(shape=len(self.clusters))
         f = lambda x: (5/self.eps)*x
@@ -201,6 +209,7 @@ class Vectorization:
 
     
     def create_index(self):
+        # cree l'index dans lequel sera stoker les clusters sous elastic search
         settings = {
         "mappings": {
                "properties" : {
@@ -230,6 +239,7 @@ class Vectorization:
     
     
     def get_res_query(self,query_text):
+        # pour un texte query_text retourne les 50 résultats pertinent
         from elasticsearch import Elasticsearch
         es = Elasticsearch(timeout=200)
    # print(query_text)
@@ -263,6 +273,7 @@ class Vectorization:
     
         
     def progressbar(self,it, prefix="", size=60, file=sys.stdout):
+        # pour la barre de progression
         count = len(it)
         def show(j):
             x = int(size*j/count)
@@ -276,6 +287,7 @@ class Vectorization:
         file.flush()
         
     def create_bm25_index(self,):
+        # cree l'index pour bm25
         index_name = "index_bm_test"
         settings = {
         "settings": {
@@ -321,6 +333,8 @@ class Vectorization:
 
 
     def get_is_in(self,val,tab):
+        # cette fonction ne sert que pour les test de perfomance s'était juste pour vérifier si un réponse est correcte
+        
         if val in tab:
             return True
         else:
@@ -328,6 +342,7 @@ class Vectorization:
         
     
     def model_combine(self,res_my,resbm24):
+        # elle prend les résultats rétournés par notre model et celui de bm25 et les combine
         import operator
         responses=[]
         ids_response=[]

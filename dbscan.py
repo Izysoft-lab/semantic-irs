@@ -113,11 +113,7 @@ class DBSCAN(ClusterMixin, BaseEstimator):
         return self.labels_
     
     def get_words(self,rarray,pos):
-        """
-        Convert a NdArray in List
-        :param ndrarray:
-        :return:
-        """
+       
         l = []
         for e in rarray:
             self.allwords[e]["cluster_id"]=pos

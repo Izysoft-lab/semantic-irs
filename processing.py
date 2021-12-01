@@ -13,7 +13,7 @@ import random
 
 
 class Processing:
-    def __init__(self, timeout =20, documents=[],eps=0.30,index_name="docume_docs_final_fin",magnitue_path="C:/Users/paul/Downloads/mots.magnitude"):
+    def __init__(self, timeout =200, documents=[],eps=0.30,index_name="docume_docs_final_fin",magnitue_path="C:/Users/paul/Downloads/mots.magnitude"):
         self.clusters = []
         self.documents=documents
         self.eps = eps
@@ -32,6 +32,11 @@ class Processing:
         
         
     def preprocessing(self):
+        """
+            le problème avec spacy est le nombre max de tokens qui peuvent être traité qui est de 100000
+            c'est pour cette raison qu'une fois que j'ai la liste des document je les docoupe de façon à 
+            ne pas depasser le sieul des 1000000 mots. Cette méthode est utilisée à cet effet
+        """
         texts = ""
         for doc in self.documents:
             texts+=" "+doc
@@ -44,6 +49,10 @@ class Processing:
 
     
     def build_clusters(self):
+        """
+            pour construire les clusters il faut au préalable prétraités les document et
+            effectuer une reconnaissance des entités nommées cette permet de faire cela
+        """
         for text_old in self.tab_tokens:
             tokens_old,org_loc_per_old = traitement(text_old)
             self.tokens.extend(tokens_old)
