@@ -5,8 +5,13 @@ import sys
 import re
 from nltk.tokenize import WordPunctTokenizer
 from nltk.corpus import stopwords
-#import spacy
-from pymagnitude import *
+try:
+    from pymagnitude import *
+except:
+    print("ça bouge")
+    from pymagnitude import *
+    import spacy
+
 from hashlib import blake2b
 import random
 es = Elasticsearch()
@@ -19,7 +24,7 @@ class Vectorization:
         self.documents=documents
         self.docs =[]
         self.eps = eps
-        self.vectors = Magnitude("C:/Users/paul/Downloads/mots.magnitude")
+        self.vectors = Magnitude("/home/paul//mots.magnitude")
         self.es = Elasticsearch(timeout=200)
         self.val_dim=2048
         self.index_name=index_name

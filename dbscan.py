@@ -9,7 +9,12 @@ from sklearn.neighbors import NearestNeighbors
 from sklearn.cluster._dbscan_inner import dbscan_inner
 import numpy as np
 from nltk.corpus import wordnet as wn
-from pymagnitude import *
+try:
+    from pymagnitude import *
+except:
+    print("ça bouge")
+    from pymagnitude import *
+ 
 from scipy.spatial import distance
 from hashlib import blake2b
 import random
@@ -47,7 +52,7 @@ class DBSCAN(ClusterMixin, BaseEstimator):
         self.p = p
         self.n_jobs = n_jobs
         self.clusters = []
-        self.vectors = Magnitude("C:/Users/paul/Downloads/mots.magnitude")
+        self.vectors = Magnitude("/home/paul//mots.magnitude")
         self.allwords =allwords
         self.es = Elasticsearch()
         self.cluster_name_index=cluster_name_index

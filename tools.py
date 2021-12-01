@@ -1,9 +1,12 @@
+import re
+from nltk.tokenize import WordPunctTokenizer
+from nltk.corpus import stopwords
+import spacy
+from nltk.corpus import wordnet   #Import wordnet from the NLTK
+from nltk.stem import WordNetLemmatizer
+nlp = spacy.load("en_core_web_sm")
+
 def traitement(text):
-    import re
-    from nltk.tokenize import WordPunctTokenizer
-    from nltk.corpus import stopwords
-    import spacy
-    nlp = spacy.load("en_core_web_sm")
     text_trait = text
     text_trait = re.sub(r'#\S+', "", text_trait)
     text_trait = re.sub(r'@\S+', "", text_trait)
@@ -25,9 +28,7 @@ def traitement(text):
 
 
 
-import nltk
-from nltk.corpus import wordnet   #Import wordnet from the NLTK
-from nltk.stem import WordNetLemmatizer
+
 def get_ontonym(word1,word2):
     ant = list()
     wordnet_lemmatizer = WordNetLemmatizer()
@@ -64,8 +65,6 @@ def progressbar(it, prefix="", size=60, file=sys.stdout):
     
     
     
-
-
 
 
 
