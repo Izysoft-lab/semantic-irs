@@ -9,7 +9,10 @@ from pymagnitude import *
 from model import Vectorization
 from hashlib import blake2b
 import random
-
+try:
+    from pymagnitude import *
+except:
+    from pymagnitude import *
 
 
 class Processing:
@@ -27,7 +30,6 @@ class Processing:
         self.docs_ids = []
         self.tokens = []
         self.org_loc_per=[]
-        self.docs_ids = []
         self.db = DBSCAN(eps=self.eps, min_samples=2, metric='cosine',allwords=[],cluster_name_index=self.index_name)
         
         
@@ -86,9 +88,9 @@ class Processing:
         for doc in self.documents:
             wordhas= doc[0:len(doc)//10]+str(np.array(random.sample(range(0, 500), 8)).sum())
             idhas = self.gethash(wordhas)
-            self.docs_id.append(idhas)
+            self.docs_ids.append(idhas)
     
     
     def indexation(self):
-        model = Vectorization(documents=[],clusters=db.clusters).fit(self.documents, self.docs_id)
+        self.model = Vectorization(documents=[],clusters=self.db.clusters).fit(self.documents, self.docs_ids)
         

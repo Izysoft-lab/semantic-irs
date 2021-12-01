@@ -8,9 +8,8 @@ from nltk.corpus import stopwords
 try:
     from pymagnitude import *
 except:
-    print("ça bouge")
     from pymagnitude import *
-    import spacy
+import spacy
 
 from hashlib import blake2b
 import random
@@ -19,9 +18,10 @@ from scipy.special import softmax
 
 
 class Vectorization:
-    def __init__(self, clusters=[],documents=[],eps=0.30, index_name="docume_docs_final_fin"):
+    def __init__(self, clusters=[],documents=[],eps=0.30, index_name="docume_docs_final_fin", bm25_name="index_bm_test"):
         self.clusters = clusters
         self.documents=documents
+        self.bm25_name = bm25_name
         self.docs =[]
         self.eps = eps
         self.vectors = Magnitude("/home/paul//mots.magnitude")
@@ -150,11 +150,23 @@ class Vectorization:
             for doc in self.progressbar(self.docs, "build docs index: ", 80):
                 res = es.index(index=self.index_name, id=doc["doc_id"], body=doc)
             print("Done.")
+            
+        except:
+            print("An exception accurred during de index creation")
+            return self
+
+        try:
+            print("create bm25 index")
+            self.create_bm25_index()
+            print("Done.")
+            print("bm25 indexation")
+            for doc in self.progressbar(self.docs, "build docs index: ", 80):
+                res = es.index(index=self.bm25_name, id=doc["doc_id"], body=doc)
+            print("Done.")
             return self
         except:
             print("An exception accurred during de index creation")
             return self
-            
         
     
     def get_docs(self):

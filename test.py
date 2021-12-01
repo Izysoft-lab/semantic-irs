@@ -37,7 +37,11 @@ for j in progressbar(range(0,2), "Computing: ", 80):
 print(len(text_docs))
 process = Processing(documents=text_docs)
 process.build_clusters()
+process.get_ids()
+print(len(process.docs_ids))
+print(len(process.documents))
 for e in process.db.clusters:
     if len(e["words"])>2:
         print(e["words"])
 print(process.db.clusters[0]["words"])
+process.indexation()

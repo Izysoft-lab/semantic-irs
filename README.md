@@ -60,6 +60,8 @@ en cours...
 
 ## Installation 
 pip install -r requirements.txt
+nltk.download('wordnet')
+nltk.download('stopwords')
 
 
 
