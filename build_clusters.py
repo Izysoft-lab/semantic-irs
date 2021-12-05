@@ -1,4 +1,5 @@
 import logging
+
 from sklearn.base import BaseEstimator, ClusterMixin
 
 from tools import get_hash
@@ -19,14 +20,14 @@ from scipy.spatial import distance
 
 class Builder(ClusterMixin, BaseEstimator):
     def __init__(
-            self,
-            eps=0.5,
-            *,
-            metric="euclidean",
-            metric_params=None,
-            allwords=[],
-            cluster_name_index="no_cluster_name",
-            word_embedding_path="/home/paul//mots.magnitude"
+        self,
+        eps=0.5,
+        *,
+        metric="euclidean",
+        metric_params=None,
+        allwords=[],
+        cluster_name_index="no_cluster_name",
+        word_embedding_path="/home/paul//mots.magnitude"
     ):
         self.eps = eps
         self.metric = metric
@@ -89,16 +90,16 @@ class Builder(ClusterMixin, BaseEstimator):
 
             else:
                 if (
-                        word_typ == "ADJ"
-                        or word_typ == "NOUN"
-                        or word_typ == "VERB"
-                        or word_typ == "ADV"
+                    word_typ == "ADJ"
+                    or word_typ == "NOUN"
+                    or word_typ == "VERB"
+                    or word_typ == "ADV"
                 ):
                     if (
-                            self.get_antonym(
-                                self.clusters[clustermin_index]["words"][0], word
-                            )
-                            == True
+                        self.get_antonym(
+                            self.clusters[clustermin_index]["words"][0], word
+                        )
+                        == True
                     ):
                         wordhas = word + str(
                             np.array(random.sample(range(0, 500), 8)).sum()

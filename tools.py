@@ -1,7 +1,7 @@
 import re
 import sys
 from hashlib import blake2b
-from typing import Tuple, Any, List
+from typing import Any, List, Tuple
 
 import spacy
 
@@ -33,7 +33,9 @@ def pre_process(text: str) -> Tuple[Any, List[str]]:
     return doc, or_per_loc
 
 
-def progress_bar(iterations: Any, prefix: str="", size:int=60, file: Any=sys.stdout) -> None:
+def progress_bar(
+    iterations: Any, prefix: str = "", size: int = 60, file: Any = sys.stdout
+) -> None:
     """
     A function to display the progress bar related to a process.
 

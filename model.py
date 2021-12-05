@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Tuple, List, Optional
+from typing import Any, List, Optional, Tuple
 
 from elasticsearch import Elasticsearch
 from nltk.corpus import stopwords
@@ -40,7 +40,7 @@ def term_frequence(document: dict, cluster: dict) -> Tuple[float, float]:
 def get_score(doc_id, tab) -> Tuple[float, int]:
     """
     Compute a document score using its ID.
-    
+
     :param doc_id:
     :param tab:
     :return:
@@ -53,12 +53,12 @@ def get_score(doc_id, tab) -> Tuple[float, int]:
 
 class Vectorization:
     def __init__(
-            self,
-            clusters=[],
-            documents=[],
-            eps=0.30,
-            index_name="docume_docs_final_fin",
-            bm25_name="index_bm_test",
+        self,
+        clusters=[],
+        documents=[],
+        eps=0.30,
+        index_name="docume_docs_final_fin",
+        bm25_name="index_bm_test",
     ):
         self.clusters = clusters
         self.documents = documents
@@ -80,7 +80,7 @@ class Vectorization:
         :return:
         """
         if len(text) < 15:
-            return text[0: len(text)]
+            return text[0 : len(text)]
         else:
             return text[0:15]
 
@@ -125,9 +125,9 @@ class Vectorization:
             w.lower()
             for w in tokens
             if not w.lower() in stopwords.words("english")
-               and len(w) > 2
-               and w != " "
-               and w != "  "
+            and len(w) > 2
+            and w != " "
+            and w != "  "
         ]
         return tokens_fin
 
@@ -269,7 +269,7 @@ class Vectorization:
         vector = []
         for i in range(0, part):
             vector.append(
-                {"vector": vec[i * self.val_dim: i * self.val_dim + self.val_dim]}
+                {"vector": vec[i * self.val_dim : i * self.val_dim + self.val_dim]}
             )
         if rest != 0:
             val = np.zeros(self.val_dim)
@@ -344,7 +344,7 @@ class Vectorization:
         return res
 
     def create_bm25_index(
-            self,
+        self,
     ):
         # cree l'index pour bm25
         index_name = "index_bm_test"
@@ -377,7 +377,9 @@ class Vectorization:
         else:
             return False
 
-    def model_combine(self, res_clustering: dict, res_bm25: dict) -> Tuple[List[str], List[dict]]:
+    def model_combine(
+        self, res_clustering: dict, res_bm25: dict
+    ) -> Tuple[List[str], List[dict]]:
         """
         Combine Clustering and bm25 results.
 
@@ -398,7 +400,7 @@ class Vectorization:
 
         for hist in hists:
             hist["_score"] = a + ((hist["_score"] - hist_score_num.min()) * (b - a)) / (
-                    hist_score_num.max() - hist_score_num.min()
+                hist_score_num.max() - hist_score_num.min()
             )
 
         for index, hit in enumerate(hists_my):
@@ -413,13 +415,13 @@ class Vectorization:
                         {
                             "_source": hit["_source"],
                             "_score": (50 - index) * hit["_score"]
-                                      + (50 - indice) * bm_score,
+                            + (50 - indice) * bm_score,
                         }
                     )
 
         for index, hit in enumerate(hists):
             ids_response.append(hit["_source"]["doc_id"])
-            if not self.get_is_in(hit["_source"]["doc_id"], ids_response) :
+            if not self.get_is_in(hit["_source"]["doc_id"], ids_response):
                 my_score, indice = get_score(
                     hit["_source"]["doc_id"], res_clustering["hits"]["hits"]
                 )
@@ -431,7 +433,7 @@ class Vectorization:
                         {
                             "_source": hit["_source"],
                             "_score": (50 - index) * hit["_score"]
-                                      + (50 - indice) * my_score,
+                            + (50 - indice) * my_score,
                         }
                     )
 

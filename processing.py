@@ -6,7 +6,7 @@ from nltk.corpus import stopwords
 
 from build_clusters import Builder
 from model import Vectorization
-from tools import progress_bar, pre_process, get_hash
+from tools import get_hash, pre_process, progress_bar
 
 try:
     from pymagnitude import *
@@ -55,8 +55,8 @@ class Processing:
 
         val = len(texts) // 50000
         for i in range(0, val - 1):
-            self.tab_tokens.append(texts[i * 50000: (i + 1) * 50000])
-        self.tab_tokens.append(texts[val * 50000: len(texts)])
+            self.tab_tokens.append(texts[i * 50000 : (i + 1) * 50000])
+        self.tab_tokens.append(texts[val * 50000 : len(texts)])
 
     def build_clusters(self) -> None:
         """
@@ -75,17 +75,17 @@ class Processing:
 
         for word in progress_bar(self.tokens, "Computing: ", 80):
             if (
-                    word.text.lower() not in tokens_add
-                    and len(word.text) > 2
-                    and word.text.lower() not in stopwords.words("english")
-                    and word.text.lower() not in self.org_loc_per
+                word.text.lower() not in tokens_add
+                and len(word.text) > 2
+                and word.text.lower() not in stopwords.words("english")
+                and word.text.lower() not in self.org_loc_per
             ):
                 self.db.add_cluster(word.text.lower(), word.pos_ == "PROPN", word.pos_)
                 tokens_add.append(word.text.lower())
 
         data_set = list(set(self.org_loc_per))
         for word in progress_bar(
-                data_set[0: len(set(self.org_loc_per))], "Computing: ", 80
+            data_set[0 : len(set(self.org_loc_per))], "Computing: ", 80
         ):
             if len(word) > 2 and word not in stopwords.words("english"):
                 self.db.add_cluster(word, True, "AVION")
@@ -98,7 +98,7 @@ class Processing:
         :return:
         """
         for doc in self.documents:
-            wordhas = doc[0: len(doc) // 10] + str(
+            wordhas = doc[0 : len(doc) // 10] + str(
                 np.array(random.sample(range(0, 500), 8)).sum()
             )
             idhas = get_hash(wordhas)
