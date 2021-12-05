@@ -1,7 +1,7 @@
 from tools import traitement
 from tools import progressbar
 from nltk.corpus import stopwords
-from dbscan import DBSCAN
+from build_clusters import Builder
 from nltk.corpus import stopwords
 from elasticsearch import Elasticsearch
 from pymagnitude import *
@@ -29,7 +29,7 @@ class Processing:
         self.docs_ids = []
         self.tokens = []
         self.org_loc_per=[]
-        self.db = DBSCAN(eps=self.eps, min_samples=2, metric='cosine',allwords=[],cluster_name_index=self.index_name)
+        self.db = Builder(eps=self.eps, metric='cosine',allwords=[],cluster_name_index=self.index_name)
         
         
     def data_division(self):
