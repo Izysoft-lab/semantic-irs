@@ -2,7 +2,6 @@ from flask import Flask, jsonify, request, render_template,  make_response
 from flask_cors import CORS
 import json
 from tools import *
-from collections import Counter
 import random
 import numpy as np
 from processing import Processing

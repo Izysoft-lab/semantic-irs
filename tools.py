@@ -1,8 +1,6 @@
 import re
-from nltk.tokenize import WordPunctTokenizer
-from nltk.corpus import stopwords
 import spacy
-from nltk.corpus import wordnet   #Import wordnet from the NLTK
+from nltk.corpus import wordnet  
 from nltk.stem import WordNetLemmatizer
 nlp = spacy.load("en_core_web_sm")
 

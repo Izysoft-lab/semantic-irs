@@ -3,7 +3,6 @@ import numpy as np
 from elasticsearch import Elasticsearch
 import sys
 import re
-from nltk.tokenize import WordPunctTokenizer
 from nltk.corpus import stopwords
 try:
     from pymagnitude import *
@@ -13,8 +12,6 @@ import spacy
 
 from hashlib import blake2b
 import random
-es = Elasticsearch()
-from scipy.special import softmax
 
 
 class Vectorization:

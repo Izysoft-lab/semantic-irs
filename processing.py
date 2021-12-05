@@ -1,6 +1,5 @@
 from tools import traitement
 from tools import progressbar
-from nltk.tokenize import WordPunctTokenizer
 from nltk.corpus import stopwords
 from dbscan import DBSCAN
 from nltk.corpus import stopwords
