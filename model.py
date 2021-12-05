@@ -1,270 +1,317 @@
-from scipy.spatial import distance
-import numpy as np
+import logging
+from typing import Any, Tuple, List, Optional
+
 from elasticsearch import Elasticsearch
-import sys
-import re
 from nltk.corpus import stopwords
+from scipy.spatial import distance
+
+from tools import pre_process, progress_bar
+
 try:
     from pymagnitude import *
 except:
     from pymagnitude import *
-import spacy
 
-from hashlib import blake2b
-import random
+es = Elasticsearch()
+
+
+def term_frequence(document: dict, cluster: dict) -> Tuple[float, float]:
+    """
+    Compute the term frequence of a cluster regarding a document.
+    :param document:
+    :param cluster:
+    :return:
+    """
+    tf = 0
+    nb_pre = 0
+    for word in cluster["words"]:
+        val = document["tokens"].count(word)
+        tf += val
+        if val > 0:
+            nb_pre += 1
+    if len(document["tokens"]) == 0:
+        return 0, nb_pre / len(cluster["words"])
+    else:
+        return np.log((tf / len(document["tokens"])) + 1), nb_pre / len(
+            cluster["words"]
+        )
+
+
+def get_score(doc_id, tab) -> Tuple[float, int]:
+    """
+    Compute a document score using its ID.
+    
+    :param doc_id:
+    :param tab:
+    :return:
+    """
+    for index, el in enumerate(tab):
+        if el["_source"]["doc_id"] == doc_id:
+            return el["_score"], index
+    return 0, 50
 
 
 class Vectorization:
-    def __init__(self, clusters=[],documents=[],eps=0.30, index_name="docume_docs_final_fin", bm25_name="index_bm_test"):
+    def __init__(
+            self,
+            clusters=[],
+            documents=[],
+            eps=0.30,
+            index_name="docume_docs_final_fin",
+            bm25_name="index_bm_test",
+    ):
         self.clusters = clusters
-        self.documents=documents
+        self.documents = documents
         self.bm25_name = bm25_name
-        self.docs =[]
+        self.docs = []
         self.eps = eps
         self.vectors = Magnitude("/home/paul//mots.magnitude")
         self.es = Elasticsearch(timeout=200)
-        self.val_dim=2048
-        self.index_name=index_name
-        if len(self.clusters)<2048:
-            self.val_dim =len(self.clusters)
-            
-    
-    def gethash(self,word):
-        # cette méthode permet d'avoir id d'un document en hashant une partie du texte
-        h = blake2b(digest_size=35)
-        h.update(str(word).encode('utf-8'))
-        return h.hexdigest()
-    
-    def getword(self,text):
-        # Retourne les premiers cacactère d'un texte 
-        if len(text)<15:
-            return text[0:len(text)]
+        self.val_dim = 2048
+        self.index_name = index_name
+        if len(self.clusters) < 2048:
+            self.val_dim = len(self.clusters)
+
+    def get_word(self, text: str) -> str:
+        """
+        Get the first 15 character of word to build an hash.
+
+        :param text:
+        :return:
+        """
+        if len(text) < 15:
+            return text[0: len(text)]
         else:
             return text[0:15]
-    
-    def nb_doc_incluster(self,cluster):
-        # cette méthode permet de calculer le log(N/nbr) où nbr est nombre de clusters contenant ce mot
-        nbr=0
+
+    def nb_doc_in_cluster(self, cluster: Any) -> float:
+        """
+        Compute IDF of a cluster words regarding the corpus : log(N/nbr).
+
+        N is the total number of clusters and nbr the number of clusters with a word of a document.
+
+        :param cluster:
+        :return:
+        """
+        nbr = 0
         for document in self.documents:
             is_in = False
             for word in set(document["tokens"]):
                 if word in cluster["words"]:
-                    is_in  =True
+                    is_in = True
                     break
-            if is_in ==True:
-                nbr +=1
-        if nbr==0:
+            if is_in:
+                nbr += 1
+        if nbr == 0:
             return 0
         else:
-            return np.log(len(self.clusters)/nbr)
-        
-    def df(self,document,cluster):
-        
-        #cette méthode permet de calculer le tf selon la formule définie
-        tf=0
-        nb_pre =0
-        for word in cluster["words"]:
-            val=document["tokens"].count(word)
-            tf +=val
-            if val>0:
-                nb_pre+=1
-        if len(document["tokens"])==0:
-               return 0,nb_pre/len(cluster["words"])
-        else:
-            return np.log((tf/len(document["tokens"]))+1),nb_pre/len(cluster["words"])
-    
-    def get_tokens(self,text):
-       # effectue l'ensemble des traitement sur du texte à l'aide d'expression regulière et retourne les tokens
-        nlp = spacy.load("en_core_web_sm")
-        text_trait = text
-        text_trait = re.sub(r'#\S+', "", text_trait)
-        text_trait = re.sub(r'@\S+', "", text_trait)
-        text_trait = re.sub(r'\S*@\S*\s?', "", text_trait) 
-        text_trait = re.sub(r'http\S+', "", text_trait)
-        text_trait = re.sub(r'word01|word02|word03', "", text_trait)
-        text_trait = re.sub(r"[^A-Za-z0-9]''", "", text_trait)
-        text_trait = re.sub(f'\d+', "", text_trait)
-        text_trait = re.sub(r'<[^>]*>', "", text_trait)
-        text_trait = re.sub("[^A-Za-z0-9|' ']+", "", text_trait)
-        doc = nlp(text_trait)
-        or_per_loc  =[]
-        tokens= []
-        for ent in doc.ents:
-        #print('_'.join(ent.text.split(' ')).lower(), ent.label_)
-            if ent.label_=="PERSON" or ent.label_=="GPE" or ent.label_=="ORG":
-                or_per_loc.append('_'.join(ent.text.split(' ')).lower())
-        
+            return np.log(len(self.clusters) / nbr)
+
+    def get_tokens(self, text: str) -> List[str]:
+        """
+        Get all processable tokens of a text string.
+
+        :param text:
+        :return:
+        """
+        doc, or_per_loc = pre_process(text)
+
+        tokens = []
         for token in doc:
             tokens.append(token.text.lower())
-    
+
         tokens.extend([w.lower() for w in or_per_loc if not w.lower() in tokens])
-        tokens_fin = [w.lower() for w in tokens if not w.lower() in stopwords.words('english') and len(w)>2 and w!=" " and w!="  "]
+        tokens_fin = [
+            w.lower()
+            for w in tokens
+            if not w.lower() in stopwords.words("english")
+               and len(w) > 2
+               and w != " "
+               and w != "  "
+        ]
         return tokens_fin
-    
-    def get_vectors(self):
-        # permet de terminer la représentation vectorielle des mots dans la base des clusters
-        for document in self.progressbar(self.documents, "get vectors: ", 80):
+
+    def build_vectors(self):
+        """
+        Compute vector representation of documents in cluster space.
+        :return:
+        """
+        for document in progress_bar(self.documents, "get vectors: ", 80):
             vector = np.zeros(shape=len(self.clusters))
             for index, cluster in enumerate(self.clusters):
-                tf,facto=self.df(document,cluster)
-                vector[index]=tf*cluster["idf"]
-            document["vector"]=self.neated_vectors(vector)
-            document["norm"]= np.linalg.norm(vector)
-        print("Done.")
-        
-    def buil_documents(self,texts,ids_docs):
-        # construre la structure document 
-        for index, text in enumerate(self.progressbar(texts, "build documents: ", 80)):
-            wordhas= self.getword(text)+str(np.array(random.sample(range(0, 500), 15)).sum())
-            idhas = self.gethash(wordhas)
-            document ={
-                "text":text,
-                "vector":None,
-                "id":ids_docs[index],
-                "tokens":self.get_tokens(text),
-                "norm":None
-                }
+                tf, facto = term_frequence(document, cluster)
+                vector[index] = tf * cluster["idf"]
+            document["vector"] = self.neated_vectors(vector)
+            document["norm"] = np.linalg.norm(vector)
+
+    def build_documents(self, texts: List[str], ids_docs: List[str]) -> None:
+        """
+        Build document structure of document representation for indexing purpose.
+
+        :param texts:
+        :param ids_docs:
+        :return:
+        """
+        for index, text in enumerate(progress_bar(texts, "build documents: ", 80)):
+            document = {
+                "text": text,
+                "vector": None,
+                "id": ids_docs[index],
+                "tokens": self.get_tokens(text),
+                "norm": None,
+            }
             self.documents.append(document)
-        print("Done.")
-    
+
     def compute_idf(self):
-        # calcul idf de chaque clusters selon la formule definie
-        for cluster in self.progressbar(self.clusters, "compute idf: ", 80):
-            cluster["idf"]=self.nb_doc_incluster(cluster)
-        print("Done.")
-            
-    def fit(self,docs_texts,id_docs):
-        # appel les méthodes précendes pour indexer automatique les documents
-        self.buil_documents(docs_texts,id_docs)
+        """
+        Compute IDF of clusters.
+
+        :return:
+        """
+        for cluster in progress_bar(self.clusters, "compute idf: ", 80):
+            cluster["idf"] = self.nb_doc_in_cluster(cluster)
+
+    def fit(self, docs_texts: List[str], id_docs: List[str]) -> Any:
+        """
+        Perform the Indexing Process regarding to the architecture described in the paper.
+
+        :param docs_texts:
+        :param id_docs:
+        :return:
+        """
+        logging.info("Launch Indexing Process ...")
+        self.build_documents(docs_texts, id_docs)
         self.compute_idf()
-        self.get_vectors()
-        self.get_docs()
-        print("Done.")
-        print("create index")
+        self.build_vectors()
+        self.build_docs()
+
+        logging.info("Semantic Document Indexing ...")
         try:
             self.create_index()
-            print("Done.")
-            for doc in self.progressbar(self.docs, "build docs index: ", 80):
-                res = es.index(index=self.index_name, id=doc["doc_id"], body=doc)
-            print("Done.")
-            
+            for doc in progress_bar(self.docs, "build docs index: ", 80):
+                _ = es.index(index=self.index_name, id=doc["doc_id"], body=doc)
+
         except:
-            print("An exception accurred during de index creation")
+            logging.exception("An exception occurred during index creation ...")
             return self
 
         try:
-            print("create bm25 index")
+            logging.info("Lexical Document Indexing ...")
             self.create_bm25_index()
-            print("Done.")
-            print("bm25 indexation")
-            for doc in self.progressbar(self.docs, "build docs index: ", 80):
-                res = es.index(index=self.bm25_name, id=doc["doc_id"], body=doc)
-            print("Done.")
+            for doc in progress_bar(self.docs, "build docs index: ", 80):
+                _ = es.index(index=self.bm25_name, id=doc["doc_id"], body=doc)
             return self
         except:
-            print("An exception accurred during de index creation")
+            logging.exception("An exception accurred during de index creation")
             return self
-        
-    
-    def get_docs(self):
-        self.docs = [{"text":doc["text"],"vectors":doc["vector"],"doc_id":doc["id"],"norm":doc["norm"]} for doc in self.documents]
-      
-    def get_cluster(self,word):
-        # retourne l'indice du cluster dans lequel se trouve un mot
-        clustermin_index = None
+
+    def build_docs(self):
+        self.docs = [
+            {
+                "text": doc["text"],
+                "vectors": doc["vector"],
+                "doc_id": doc["id"],
+                "norm": doc["norm"],
+            }
+            for doc in self.documents
+        ]
+
+    def get_cluster(self, word: str) -> Tuple[bool, Optional[int], float]:
+        """
+        Get Index of a word cluster.
+
+        :param word:
+        :return:
+        """
+        cluster_min_index = None
         in_cluster = False
         vector = self.vectors.query(word)
-        val_min = distance.cosine(self.clusters[0]["centroid"],vector)
+        val_min = distance.cosine(self.clusters[0]["centroid"], vector)
         for index, cluster in enumerate(self.clusters):
             if word in cluster["words"]:
-                clustermin_index = index
+                cluster_min_index = index
                 in_cluster = True
-                return in_cluster,clustermin_index, self.eps
-            else:  
-                dis=distance.cosine(cluster["centroid"],vector)
-                if dis < self.eps and val_min >= dis:
-                    clustermin_index = index
-                    val_min = dis
-                
-        return in_cluster, clustermin_index, self.eps-val_min
-    
-
-    def buil_query(self,text):
-        # indexer le requête et retourne sa forme vectorielle dans la base des clusters
-        tokens = self.get_tokens(text)
-        vector = np.zeros(shape=len(self.clusters))
-        f = lambda x: (5/self.eps)*x
-        vectors=[]
-        for word in tokens:
-            in_cluster, index_cluster,val = self.get_cluster(word)
-            if in_cluster ==True:
-                vector[index_cluster]+=6
-                vectors.append({"indice":index_cluster,"val":6})    
+                return in_cluster, cluster_min_index, self.eps
             else:
-                if index_cluster!=None:
-                    vector[index_cluster]+=6
-                    vectors.append({"indice":index_cluster,"val":6})
-                
-        return {"vectors":vectors, "norm":np.linalg.norm(vector)}
-    
-    
-    def neated_vectors(self,vec):
-        part = len(vec)//self.val_dim
-        rest = len(vec)%self.val_dim
+                dis = distance.cosine(cluster["centroid"], vector)
+                if dis < self.eps and val_min >= dis:
+                    cluster_min_index = index
+                    val_min = dis
+
+        return in_cluster, cluster_min_index, self.eps - val_min
+
+    def build_query(self, query: str) -> dict:
+        """
+        Get the vector representation of a query.
+
+        :param query:
+        :return:
+        """
+        tokens = self.get_tokens(query)
+        vector = np.zeros(shape=len(self.clusters))
+        f = lambda x: (5 / self.eps) * x
+        vectors = []
+        for word in tokens:
+            in_cluster, index_cluster, val = self.get_cluster(word)
+            if in_cluster:
+                vector[index_cluster] += 6
+                vectors.append({"indice": index_cluster, "val": 6})
+            else:
+                if index_cluster is not None:
+                    vector[index_cluster] += 6
+                    vectors.append({"indice": index_cluster, "val": 6})
+
+        return {"vectors": vectors, "norm": np.linalg.norm(vector)}
+
+    def neated_vectors(self, vec):
+        part = len(vec) // self.val_dim
+        rest = len(vec) % self.val_dim
         vector = []
-        for i in range(0,part):
-            vector.append({"vector":vec[i*self.val_dim: i*self.val_dim+self.val_dim]})
-        if rest!=0:
-            val= np.zeros(self.val_dim)
-            for i in range(part*self.val_dim,part*self.val_dim+rest):
-                val[i-part*self.val_dim]=vec[i]
-            vector.append({"vector":val})
+        for i in range(0, part):
+            vector.append(
+                {"vector": vec[i * self.val_dim: i * self.val_dim + self.val_dim]}
+            )
+        if rest != 0:
+            val = np.zeros(self.val_dim)
+            for i in range(part * self.val_dim, part * self.val_dim + rest):
+                val[i - part * self.val_dim] = vec[i]
+            vector.append({"vector": val})
         return vector
 
-    
     def create_index(self):
-        # cree l'index dans lequel sera stoker les clusters sous elastic search
+        """
+        Create an Elasticsearch index to store data.
+
+        :return:
+        """
         settings = {
-        "mappings": {
-               "properties" : {
-                      "vectors":{
-                            "type":"nested",
-                            "properties":{
-                                "vector":{
-                                "type": "dense_vector",
-                                "dims": self.val_dim
-                            },
-                        }
+            "mappings": {
+                "properties": {
+                    "vectors": {
+                        "type": "nested",
+                        "properties": {
+                            "vector": {"type": "dense_vector", "dims": self.val_dim},
                         },
-                      "doc_id" : {
-                          "type" : "text"
-                          },
-                        "text": {
-                             "type" : "text"
-                         },
-                       "norm": {
-                             "type" : "double"
-                         },
-                    }
+                    },
+                    "doc_id": {"type": "text"},
+                    "text": {"type": "text"},
+                    "norm": {"type": "double"},
+                }
             }
         }
-    
+
         self.es.indices.create(index=self.index_name, ignore=400, body=settings)
-    
-    
-    def get_res_query(self,query_text):
-   
-    
-        query_vect =  self.buil_query(query_text)
-   
-        query ={
-              "query": {
+
+    def get_res_query(self, query_text: str):
+
+        query_vect = self.build_query(query_text)
+
+        query = {
+            "query": {
                 "script_score": {
-                  "query" : {
-                    "match_all": {}
-                  },
-                  "script": {
-                    "source": """
+                    "query": {"match_all": {}},
+                    "script": {
+                        "source": """
                         double dot_produit = 0.0;
                         double norm_souce = 0.0;
                         double norn_query = 0.0;
@@ -283,173 +330,148 @@ class Vectorization:
                         return dot_produit/(nor_doc*params.norm);
         
                     """,
-                    "params": {
-                      "query_vector":query_vect["vectors"],
-                        "norm":query_vect["norm"],
-                        "val_dim":self.val_dim
-                    }
-                  }
-                ,
-                "min_score":0.05
+                        "params": {
+                            "query_vector": query_vect["vectors"],
+                            "norm": query_vect["norm"],
+                            "val_dim": self.val_dim,
+                        },
+                    },
+                    "min_score": 0.05,
                 }
-              }
             }
+        }
         res = self.es.search(index="docume_docs_final_fin", body=query)
         return res
 
-    
-    
-    
-        
-    def progressbar(self,it, prefix="", size=60, file=sys.stdout):
-        # pour la barre de progression
-        count = len(it)
-        def show(j):
-            x = int(size*j/count)
-            file.write("%s[%s%s] %i/%i\r" % (prefix, "#"*x, "."*(size-x), j, count))
-            file.flush()        
-        show(0)
-        for i, item in enumerate(it):
-            yield item
-            show(i+1)
-        file.write("\n")
-        file.flush()
-        
-    def create_bm25_index(self,):
+    def create_bm25_index(
+            self,
+    ):
         # cree l'index pour bm25
         index_name = "index_bm_test"
         settings = {
-        "settings": {
-            "number_of_shards": 1,
-            "index" : {
-                "similarity" : {
-                "default" : {
-                    "type" : "BM25",
-                    "b": 0.5,
-                    "k1": 0
-                    }
-                }
+            "settings": {
+                "number_of_shards": 1,
+                "index": {
+                    "similarity": {"default": {"type": "BM25", "b": 0.5, "k1": 0}}
+                },
+            },
+            "mappings": {
+                "properties": {
+                    "vectors": {
+                        "type": "nested",
+                        "properties": {
+                            "vector": {"type": "dense_vector", "dims": self.val_dim},
+                        },
+                    },
+                    "doc_id": {"type": "text"},
+                    "text": {"type": "text"},
                 }
             },
-        "mappings": {
-               "properties" : {
-                      "vectors":{
-                            "type":"nested",
-                            "properties":{
-                                "vector":{
-                                "type": "dense_vector",
-                                "dims": self.val_dim
-                            },
-                        }
-                        },
-                      "doc_id" : {
-                          "type" : "text"
-                          },
-                        "text": {
-                             "type" : "text"
-                         },
-                    }
-            }
         }
 
         self.es.indices.create(index=index_name, ignore=400, body=settings)
-        
-    def get_score(sefl,val,tab):
-        for index, el in enumerate(tab):
-            if el["_source"]["doc_id"]==val:
-                return el["_score"], index
-        return 0,50
 
-
-    def get_is_in(self,val,tab):
-        # cette fonction ne sert que pour les test de perfomance s'était juste pour vérifier si un réponse est correcte
-        
+    def get_is_in(self, val, tab):
         if val in tab:
             return True
         else:
             return False
-        
-    
-    def model_combine(self,res_my,resbm24):
-        # elle prend les résultats rétournés par notre model et celui de bm25 et les combine
+
+    def model_combine(self, res_clustering: dict, res_bm25: dict) -> Tuple[List[str], List[dict]]:
+        """
+        Combine Clustering and bm25 results.
+
+        :param res_clustering:
+        :param res_bm25:
+        :return:
+        """
         import operator
-        responses=[]
-        ids_response=[]
-        hists_my  = res_my['hits']['hits']
+
+        responses = []
+        ids_response = []
+        hists_my = res_clustering["hits"]["hits"]
         hist_my_score_num = np.array([hit["_score"] for hit in hists_my])
-        a=hist_my_score_num.min()
-        b=hist_my_score_num.max()
-        hists  = resbm24['hits']['hits']
+        a = hist_my_score_num.min()
+        b = hist_my_score_num.max()
+        hists = res_bm25["hits"]["hits"]
         hist_score_num = np.array([hit["_score"] for hit in hists])
-        a1=hist_score_num.min()
-        b1=hist_score_num.max()
+
         for hist in hists:
-            hist["_score"]=a+((hist["_score"]-hist_score_num.min())*(b-a))/(hist_score_num.max()-hist_score_num.min())
-   
-   
-        ids_valide=[]
+            hist["_score"] = a + ((hist["_score"] - hist_score_num.min()) * (b - a)) / (
+                    hist_score_num.max() - hist_score_num.min()
+            )
+
         for index, hit in enumerate(hists_my):
             ids_response.append(hit["_source"]["doc_id"])
-            if self.get_is_in(hit["_source"],ids_response)==False:
-                bm_score,indice = self.get_score(hit["_source"]["doc_id"],hists)
-                if hit["_score"]+bm_score==0:
-                    responses.append({"_source":hit["_source"],"_score":0})
-           
+            if not self.get_is_in(hit["_source"], ids_response):
+                bm_score, indice = get_score(hit["_source"]["doc_id"], hists)
+                if hit["_score"] + bm_score == 0:
+                    responses.append({"_source": hit["_source"], "_score": 0})
+
                 else:
-                    responses.append({"_source":hit["_source"],"_score":(50-index)*hit["_score"]+(50-indice)*bm_score})
-            
-        
-   
-        for index,hit in enumerate(hists):
+                    responses.append(
+                        {
+                            "_source": hit["_source"],
+                            "_score": (50 - index) * hit["_score"]
+                                      + (50 - indice) * bm_score,
+                        }
+                    )
+
+        for index, hit in enumerate(hists):
             ids_response.append(hit["_source"]["doc_id"])
-            if self.get_is_in(hit["_source"]["doc_id"],ids_response)==False:
-                my_score,indice = self.get_score(hit["_source"]["doc_id"],res_my['hits']['hits'])
-                if hit["_score"]+my_score==0:
-                    responses.append({"_source":hit["_source"],"_score":0})
-               
+            if not self.get_is_in(hit["_source"]["doc_id"], ids_response) :
+                my_score, indice = get_score(
+                    hit["_source"]["doc_id"], res_clustering["hits"]["hits"]
+                )
+                if hit["_score"] + my_score == 0:
+                    responses.append({"_source": hit["_source"], "_score": 0})
+
                 else:
-                    responses.append({"_source":hit["_source"],"_score":(50-index)*hit["_score"]+(50-indice)*my_score})
-           
-        
-    
-        responses.sort(key=operator.itemgetter('_score'),reverse= True)
-        ids_responses=[]
+                    responses.append(
+                        {
+                            "_source": hit["_source"],
+                            "_score": (50 - index) * hit["_score"]
+                                      + (50 - indice) * my_score,
+                        }
+                    )
+
+        responses.sort(key=operator.itemgetter("_score"), reverse=True)
+        ids_responses = []
         for hit in responses[0:50]:
             ids_responses.append(hit["_source"]["doc_id"])
         return ids_responses, responses[0:50]
 
-    def prop_model(self,ques):
-        res =self.get_res_query(ques)
-        ids_response=[]
-        for hit in res['hits']['hits']:
+    def query_clustering_model(self, query: str):
+        res = self.get_res_query(query)
+        ids_response = []
+        for hit in res["hits"]["hits"]:
             ids_response.append(hit["_source"]["doc_id"])
-       
-        return ids_response,res
-    
-    def bm_25model(self,ques):
+
+        return ids_response, res
+
+    def queyr_bm25_model(self, query: str) -> Tuple[List[str], dict]:
+        """
+        Query the clustering model and retrieve relevant documents.
+
+        :param query:
+        :return:
+        """
         query = {
-        "query": {
-            "match": {
-            "text": ques
-            }
-        
-        },
+            "query": {"match": {"text": query}},
             "size": 50,
         }
         res = self.es.search(index="index_bm_test", body=query)
-        ids_response=[]
-        for hit in res['hits']['hits']:
+        ids_response = []
+        for hit in res["hits"]["hits"]:
             ids_response.append(hit["_source"]["doc_id"])
-        
-        return ids_response, res 
-    
-    def get_response(self,ques):
-        res_my_id,res_my,  = self.prop_model(ques)
-        res_bm25_id,res_bm25 = self.bm_25model(ques)
-        res_comb,com_resp = self.model_combine(res_my,res_bm25)
+
+        return ids_response, res
+
+    def get_response(self, query: str) -> Tuple[List[str], dict]:
+        (
+            res_clustering_id,
+            res_clustering,
+        ) = self.query_clustering_model(query)
+        res_bm25_id, res_bm25 = self.queyr_bm25_model(query)
+        res_comb, com_resp = self.model_combine(res_clustering, res_bm25)
         return res_comb, com_resp
-
-
-
-    
-
