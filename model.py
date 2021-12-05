@@ -57,15 +57,15 @@ class Vectorization:
         clusters=[],
         documents=[],
         eps=0.30,
-        index_name="docume_docs_final_fin",
-        bm25_name="index_bm_test",
+        index_name="document_clustering_index",
+        bm25_name="document_bm25_index",
     ):
         self.clusters = clusters
         self.documents = documents
         self.bm25_name = bm25_name
         self.docs = []
         self.eps = eps
-        self.vectors = Magnitude("/home/paul//mots.magnitude")
+        self.vectors = Magnitude("/home/user/embeddings.magnitude")
         self.es = Elasticsearch(timeout=200)
         self.val_dim = 2048
         self.index_name = index_name

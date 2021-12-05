@@ -16,7 +16,7 @@ def welcome():
     return render_template("index.html")
 
 
-@app.route("/resquest", methods=["POST"])
+@app.route("/request", methods=["POST"])
 def predict():
     if request.method == "POST":
         data = request.get_json()

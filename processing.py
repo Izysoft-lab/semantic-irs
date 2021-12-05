@@ -20,8 +20,8 @@ class Processing:
         timeout=200,
         documents=[],
         eps=0.30,
-        index_name="docume_docs_final_fin",
-        magnitue_path="/home/paul//mots.magnitude",
+        index_name="docs_index",
+        magnitue_path="/home/user/embeddings.magnitude",
     ):
         self.clusters = []
         self.documents = documents

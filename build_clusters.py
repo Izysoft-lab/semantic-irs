@@ -27,7 +27,7 @@ class Builder(ClusterMixin, BaseEstimator):
         metric_params=None,
         allwords=[],
         cluster_name_index="no_cluster_name",
-        word_embedding_path="/home/paul//mots.magnitude"
+        word_embedding_path="/home/user/embeddings.magnitude"
     ):
         self.eps = eps
         self.metric = metric
