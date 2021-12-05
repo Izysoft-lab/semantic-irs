@@ -8,23 +8,21 @@ A Flask API (launch.py) is developed to illustrate the use this approach on the 
 It can be use to retrieve paragraphs relevant to a query.
 
 ## Package Installation 
-in a Python 3 Environment
+In a Python 3 Environment
 ```
 pip install -r requirements.txt
 nltk.download('wordnet')
 nltk.download('stopwords')
-
 ```
 
 
 ## System Requirements
-- Elasticsearch running on port 9200 with password security
+- Elasticsearch running on port 9200 without password security (default configuration)
 - Fasttext embeddings (PyMagnitude) at location "/home/user/embeddings.magnitude"
 
 ## Running the script
 ```
 python launch.py
-
 ```
 this will expose the API on port 5002 of localhost
 
