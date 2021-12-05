@@ -1,8 +1,12 @@
-from flask import Flask, jsonify, request, render_template
+from flask import Flask, jsonify, request, render_template,  make_response
 from flask_cors import CORS
-
+import json
+from tools import *
+from collections import Counter
+import random
 import numpy as np
-import pandas as pd
+from processing import Processing
+
 
 
 app = Flask(__name__)
@@ -12,74 +16,76 @@ CORS(app)
 def welcome():
     return render_template('index.html')
     
-@app.route('/decision', methods=['POST'])
+@app.route('/resquest', methods=['POST'])
 def predict():
     if request.method == 'POST':
         val = 50
         data = request.get_json()
+        print(data["request"])
         #data = {'thal':1,'ca':0, 'slope':0, 'oldpeak':2.5, 'exang':0, 'thalach':150, 'restecg':0,'fbs':1, 'chol':230, 'trestbps':140, 'cp':2, 'sex':1, 'age':60}
-        print(data)
-        ar = np.array([[data['age'], data['sexe'], data['niveau'], data['pression'], data['cholesterol'], 
-        data['glycemie'], data['electrocardio'], data['frequence'], data['angine'], data['decalage'], data['pente'], data['fluoroscopie'], data['thalassemie']]])
-        df2 = pd.DataFrame(ar, columns = ['age', 'sex', 'cp', 'trestbps', 'chol', 'fbs', 'restecg', 'thalach', 'exang', 'oldpeak', 'slope', 'ca', 'thal'])
-
-        val = my_pipeline.predict_proba(df2.loc[0:0])[0][1] * 100
-        print(val)
-        return jsonify({"resultat": val})
-
+        print(process.db.clusters[0]["words"])
+        #response = process.model.get_res_query(questions[0]["ques"])
+        print(questions[0]["ques"])
+        res_ids,response = process.model.get_response(data["request"])
+        #print(response)
+        
+        results= []
+        #print(response)
+        
+        for hit in response:
+            results.append({"id":hit["_source"]["doc_id"],"text":hit["_source"]["text"],"_score":hit["_score"]})
+            #print(hit["_source"]["text"])
+        #print(hit["_source"]["doc_id"])
+        # print(hit["_source"]["text"])
+        
+       
+        
+        return make_response(jsonify(results), 200)
+    
+       
 
 if __name__ == "__main__":
     import numpy as np
-    import pandas as pd
-    import matplotlib.pyplot as plt
-    import seaborn as sns
-    from sklearn.model_selection import train_test_split
+    f = open('train-v2.0.json',)
+    data = json.load(f)
+    from hashlib import blake2b
+    def gethash(word):
+        h = blake2b(digest_size=35)
+        h.update(str(word).encode('utf-8'))
+        return h.hexdigest()   
 
-    # We are reading our data
-    df = pd.read_csv("./heart.csv")
-
-    y = df.target.values
-    X = df.drop(['target'], axis = 1)
-
-    # Normalize
-    x = (X - np.min(X)) / (np.max(X) - np.min(X)).values
-
-    x_train, x_test, y_train, y_test = train_test_split(x,y,test_size = 0.2,random_state=0)
-
-    from sklearn.compose import ColumnTransformer
-    from sklearn.pipeline import Pipeline
-    from sklearn.impute import SimpleImputer
-    from sklearn.preprocessing import OneHotEncoder
-
-    categorical_cols = ['sex', 'cp', 'thal', 'slope', 'exang', 'restecg']
-    numerical_cols = [col for col in df.columns if (col not in categorical_cols and col != 'target')]
-
-    # Preprocessing for numerical data
-    numerical_transformer = SimpleImputer(strategy='constant')
-
-    # Preprocessing for categorical data
-    categorical_transformer = Pipeline(steps=[
-        ('imputer', SimpleImputer(strategy='most_frequent')),
-        ('onehot', OneHotEncoder(handle_unknown='ignore'))
-    ])
-
-    # Bundle preprocessing for numerical and categorical data
-    preprocessor = ColumnTransformer(
-        transformers=[
-            ('num', numerical_transformer, numerical_cols),
-            ('cat', categorical_transformer, categorical_cols)
-        ])
-
-    from sklearn.ensemble import RandomForestClassifier
-
-    model = RandomForestClassifier(n_estimators=1000, random_state=1)
-
-    from sklearn.metrics import mean_absolute_error
-
-    # Bundle preprocessing and modeling code in a pipeline
-    my_pipeline = Pipeline(steps=[('preprocessor', preprocessor),
-                                ('model', model)
-                                ])
-
-    my_pipeline.fit(x_train, y_train)
+    text=""
+    questions=[]
+    text_docs =[]
+    docs_ids = []
+    tokens = []
+    org_loc_per=[]
+    print(len(data["data"]))
+    for j in progressbar(range(0,2), "Computing: ", 80):
+        text1=""
+        for i in range(len(data["data"])*j//200,len(data["data"])*(j+1)//200) :
+            text1+=data["data"][i]["title"]
+            for element in data["data"][i]['paragraphs'][0:20]:
+                wordhas= element["context"][0:15] +str(np.array(random.sample(range(0, 500), 8)).sum())
+                idhas = gethash(wordhas)
+                for quest in element["qas"][0:5]:
+                    questions.append({"ques":quest["question"],"res_id":idhas})
+            
+            text1+=element["context"]
+            text_docs.append(element["context"])
+            docs_ids.append(idhas)
+            text1+=" "
+    
+    print(len(text_docs))
+    process = Processing(documents=text_docs)
+    process.build_clusters()
+    process.get_ids()
+    print(len(process.docs_ids))
+    print(len(process.documents))
+    for e in process.db.clusters:
+        if len(e["words"])>2:
+            print(e["words"])
+    print(process.db.clusters[0]["words"])
+    process.indexation()
+    
     app.run(port=5002)

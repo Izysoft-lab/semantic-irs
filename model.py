@@ -256,33 +256,48 @@ class Vectorization:
     
     
     def get_res_query(self,query_text):
-        # pour un texte query_text retourne les 50 résultats pertinent
-        from elasticsearch import Elasticsearch
-        es = Elasticsearch(timeout=200)
-   # print(query_text)
+   
     
         query_vect =  self.buil_query(query_text)
-    #print(query_vect["vectors"])
    
         query ={
-            "query": {
+              "query": {
                 "script_score": {
-                "query" : {
+                  "query" : {
                     "match_all": {}
-                },
-                "script": {
-                "id": "my_model_script",
+                  },
+                  "script": {
+                    "source": """
+                        double dot_produit = 0.0;
+                        double norm_souce = 0.0;
+                        double norn_query = 0.0;
+                        def li = params['_source'].vectors; 
+                        def nor_doc = params['_source'].norm;
+            
+                        for(int i=0;  i<params.query_vector.length ; i++){    
+                            int part = params.query_vector[i].indice/params.val_dim;
+                            int rest = params.query_vector[i].indice % params.val_dim;
+                            dot_produit += li[part].vector[rest]*params.query_vector[i].val;
+                        
+                        }
+                        if(dot_produit==0){
+                        return 0
+                        } 
+                        return dot_produit/(nor_doc*params.norm);
+        
+                    """,
                     "params": {
-                        "query_vector":query_vect["vectors"],
+                      "query_vector":query_vect["vectors"],
                         "norm":query_vect["norm"],
                         "val_dim":self.val_dim
+                    }
+                  }
+                ,
+                "min_score":0.05
                 }
               }
             }
-          },
-          "size": 50
-        }
-        res = es.search(index="docume_docs_final_fin", body=query)
+        res = self.es.search(index="docume_docs_final_fin", body=query)
         return res
 
     
@@ -406,7 +421,36 @@ class Vectorization:
             ids_responses.append(hit["_source"]["doc_id"])
         return ids_responses, responses[0:50]
 
+    def prop_model(self,ques):
+        res =self.get_res_query(ques)
+        ids_response=[]
+        for hit in res['hits']['hits']:
+            ids_response.append(hit["_source"]["doc_id"])
+       
+        return ids_response,res
     
+    def bm_25model(self,ques):
+        query = {
+        "query": {
+            "match": {
+            "text": ques
+            }
+        
+        },
+            "size": 50,
+        }
+        res = self.es.search(index="index_bm_test", body=query)
+        ids_response=[]
+        for hit in res['hits']['hits']:
+            ids_response.append(hit["_source"]["doc_id"])
+        
+        return ids_response, res 
+    
+    def get_response(self,ques):
+        res_my_id,res_my,  = self.prop_model(ques)
+        res_bm25_id,res_bm25 = self.bm_25model(ques)
+        res_comb,com_resp = self.model_combine(res_my,res_bm25)
+        return res_comb, com_resp
 
 
 
