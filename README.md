@@ -70,10 +70,16 @@ You must have Elasticsearch installed on your machine the documents are indexed 
 ### vector embeddings fasttest
 We use word embedding fasttext to semantically group the words in the collection into a single cluster so you need to specify the location of the Elasticsearch file on disk   
 
-you can download it [here](#https://fasttext.cc/docs/en/english-vectors.html)
+you can download it fasttext word embedding **[`here`](https://fasttext.cc/docs/en/english-vectors.html)**:
 
+## Test
+To be able to test the api you have to start Elasticsearch and place the word embedding file in the folder with the name words.vectors because the test script here directly looks for this file.
 
+the file launch.py contains the script to test the model. The test consists in indexing a part of data of train-v2 Squard and launching a small server which listens a request on the port 5002 
 
+Use the post method with a json {request: "text_request"} as body to get the results corresponding to "text_request
+
+you can then customize the script in the launch.py file to fit your needs
 
 
 
