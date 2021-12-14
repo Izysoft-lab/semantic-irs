@@ -64,5 +64,16 @@ nltk.download('wordnet')
 nltk.download('stopwords')
 
 
+## Requirement
+### elasticsearch 
+You must have Elasticsearch installed on your machine the documents are indexed directly in elasticsearch to speed up the search 
+### vector embeddings fasttest
+We use word embedding fasttext to semantically group the words in the collection into a single cluster so you need to specify the location of the Elasticsearch file on disk   
+
+you can download it [here](#https://fasttext.cc/docs/en/english-vectors.html)
+
+
+
+
 
 

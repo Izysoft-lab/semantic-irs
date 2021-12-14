@@ -145,7 +145,7 @@ class Vectorization:
             self.create_index()
             print("Done.")
             for doc in self.progressbar(self.docs, "build docs index: ", 80):
-                res = es.index(index=self.index_name, id=doc["doc_id"], body=doc)
+                res = self.es.index(index=self.index_name, id=doc["doc_id"], body=doc)
             print("Done.")
             
         except:
@@ -158,7 +158,7 @@ class Vectorization:
             print("Done.")
             print("bm25 indexation")
             for doc in self.progressbar(self.docs, "build docs index: ", 80):
-                res = es.index(index=self.bm25_name, id=doc["doc_id"], body=doc)
+                res = self.es.index(index=self.bm25_name, id=doc["doc_id"], body=doc)
             print("Done.")
             return self
         except:
@@ -379,13 +379,26 @@ class Vectorization:
         hist_my_score_num = np.array([hit["_score"] for hit in hists_my])
         a=hist_my_score_num.min()
         b=hist_my_score_num.max()
+        print(a)
+        print(b)
         hists  = resbm24['hits']['hits']
         hist_score_num = np.array([hit["_score"] for hit in hists])
-        a1=hist_score_num.min()
-        b1=hist_score_num.max()
+        print(len(hists))
+        
         for hist in hists:
-            hist["_score"]=a+((hist["_score"]-hist_score_num.min())*(b-a))/(hist_score_num.max()-hist_score_num.min())
-   
+            print("score1")
+            print(hist_score_num.max())
+            print(hist_score_num.min())
+            if hist_score_num.max()-hist_score_num.min()==0:
+                hist["_score"]=a
+            else:
+                hist["_score"]=a+((hist["_score"]-hist_score_num.min())*(b-a))/(hist_score_num.max()-hist_score_num.min())
+                
+        print("on commence")
+        for hist in hists:
+            print(hist["_score"])
+            
+        print("onfini")
    
         ids_valide=[]
         for index, hit in enumerate(hists_my):

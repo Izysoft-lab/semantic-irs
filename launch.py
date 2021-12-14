@@ -60,7 +60,7 @@ if __name__ == "__main__":
     tokens = []
     org_loc_per=[]
     print(len(data["data"]))
-    for j in progressbar(range(0,2), "Computing: ", 80):
+    for j in progressbar(range(0,40), "Computing: ", 80):
         text1=""
         for i in range(len(data["data"])*j//200,len(data["data"])*(j+1)//200) :
             text1+=data["data"][i]["title"]
@@ -79,12 +79,6 @@ if __name__ == "__main__":
     process = Processing(documents=text_docs)
     process.build_clusters()
     process.get_ids()
-    print(len(process.docs_ids))
-    print(len(process.documents))
-    for e in process.db.clusters:
-        if len(e["words"])>2:
-            print(e["words"])
-    print(process.db.clusters[0]["words"])
     process.indexation()
     
     app.run(port=5002)
